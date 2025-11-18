@@ -1,0 +1,25 @@
+# Anchor
+.anchor
+target/
+**/*.rs.bk
+node_modules
+test-ledger
+.DS_Store
+
+# Solana
+/deploy/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
