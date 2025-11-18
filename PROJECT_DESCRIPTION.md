@@ -1,6 +1,6 @@
 # Skill Bounty - Blockchain-Verified Skill Challenges Platform
 
-**Deployed Frontend URL:** https://skill-bounty-mbie8fvdl-mahavirs-projects-d55f6e01.vercel.app/
+**Deployed Frontend URL:** https://skill-bounty-app.vercel.app/
 
 **Solana Program ID:** `F93dsqgFBnMWTkwwgFogygkAozw4s2sDPo1aMQRNc11b` (Devnet)
 
