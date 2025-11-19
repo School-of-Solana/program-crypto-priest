@@ -1,6 +1,6 @@
 "use client";
 
-import { FC, ReactNode, useMemo } from "react";
+import { FC, ReactNode, useMemo, useCallback } from "react";
 import {
   ConnectionProvider,
   WalletProvider,
@@ -16,9 +16,15 @@ export const WalletContextProvider: FC<{ children: ReactNode }> = ({
 }) => {
   const wallets = useMemo(() => [new PhantomWalletAdapter()], []);
 
+  // Handle wallet errors gracefully
+  const onError = useCallback((error: any) => {
+    console.error("Wallet error:", error);
+    // Silently handle wallet errors to prevent UI disruption
+  }, []);
+
   return (
     <ConnectionProvider endpoint={DEVNET_RPC}>
-      <WalletProvider wallets={wallets} autoConnect>
+      <WalletProvider wallets={wallets} autoConnect={false} onError={onError}>
         <WalletModalProvider>{children}</WalletModalProvider>
       </WalletProvider>
     </ConnectionProvider>

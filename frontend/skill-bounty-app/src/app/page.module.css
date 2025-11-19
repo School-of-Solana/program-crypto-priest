@@ -1,0 +1,180 @@
+/* Homepage Styles */
+
+.page {
+  @apply min-h-screen bg-primary-bg;
+}
+
+.mainContent {
+  @apply container mx-auto px-4 sm:px-6 py-8 sm:py-12 md:py-20;
+}
+
+/* Hero Section */
+.hero {
+  @apply max-w-4xl mx-auto text-center mb-12 sm:mb-16 md:mb-20;
+}
+
+.statusBadge {
+  @apply inline-flex items-center gap-2 mb-4 sm:mb-6 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-white border-2 border-muted-teal/30 shadow-sm;
+}
+
+.statusDot {
+  @apply w-2 h-2 bg-muted-teal rounded-full animate-pulse;
+}
+
+.statusText {
+  @apply text-xs sm:text-sm font-semibold text-dark-slate;
+}
+
+.headline {
+  @apply text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold mb-4 sm:mb-6 text-charcoal leading-tight px-2;
+}
+
+.headlineAccent {
+  @apply text-deep-teal;
+}
+
+.subtitle {
+  @apply text-base sm:text-lg md:text-xl text-dark-slate mb-8 sm:mb-10 max-w-2xl mx-auto leading-relaxed px-2;
+}
+
+.ctaButtons {
+  @apply flex flex-col sm:flex-row items-center justify-center gap-4 mb-12;
+}
+
+.ctaPrimary {
+  @apply px-8 py-4 bg-deep-teal text-white font-semibold text-lg rounded-lg hover:bg-dark-slate transition-colors duration-200 shadow-sm w-full sm:w-auto;
+}
+
+.ctaSecondary {
+  @apply px-8 py-4 bg-white border-2 border-deep-teal text-deep-teal font-semibold text-lg rounded-lg hover:bg-deep-teal hover:text-white transition-colors duration-200 w-full sm:w-auto;
+}
+
+/* Stats Section */
+.statsSection {
+  @apply max-w-5xl mx-auto mb-12 sm:mb-16 md:mb-20;
+}
+
+.sectionHeader {
+  @apply text-center mb-6 sm:mb-8 md:mb-10;
+}
+
+.sectionTitle {
+  @apply text-2xl sm:text-3xl md:text-4xl font-bold text-charcoal mb-2 px-2;
+}
+
+.sectionDescription {
+  @apply text-sm sm:text-base text-dark-slate px-2;
+}
+
+.statsGrid {
+  @apply grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6;
+}
+
+.statCard {
+  @apply bg-white rounded-xl p-6 sm:p-8 border border-border-light hover:border-muted-teal hover:shadow-md transition-all duration-200;
+}
+
+.statIcon {
+  @apply w-12 h-12 rounded-lg flex items-center justify-center mb-4;
+}
+
+.statIconDeepTeal {
+  @apply bg-deep-teal/10;
+}
+
+.statIconMutedTeal {
+  @apply bg-muted-teal/10;
+}
+
+.statIconDarkSlate {
+  @apply bg-dark-slate/10;
+}
+
+.statSvg {
+  @apply w-6 h-6;
+}
+
+.statSvgDeepTeal {
+  @apply text-deep-teal;
+}
+
+.statSvgMutedTeal {
+  @apply text-muted-teal;
+}
+
+.statSvgDarkSlate {
+  @apply text-dark-slate;
+}
+
+.statValue {
+  @apply text-3xl sm:text-4xl font-bold mb-2;
+}
+
+.statValueCharcoal {
+  @apply text-charcoal;
+}
+
+.statValueMutedTeal {
+  @apply text-muted-teal;
+}
+
+.statValueDarkSlate {
+  @apply text-dark-slate;
+}
+
+.statLabel {
+  @apply text-sm sm:text-base text-dark-slate font-medium;
+}
+
+/* Featured Challenges Section */
+.challengesSection {
+  @apply scroll-mt-20;
+}
+
+.loadingState {
+  @apply text-center py-20;
+}
+
+.spinner {
+  @apply inline-block animate-spin rounded-full h-12 w-12 border-4 border-muted-teal/20 border-t-muted-teal;
+}
+
+.loadingText {
+  @apply mt-4 text-dark-slate font-medium;
+}
+
+.emptyState {
+  @apply text-center py-12 sm:py-16 md:py-20 bg-white rounded-xl border border-border-light mx-2 sm:mx-0;
+}
+
+.emptyIcon {
+  @apply w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 rounded-full bg-muted-teal/10 flex items-center justify-center;
+}
+
+.emptyTitle {
+  @apply text-xl sm:text-2xl font-bold text-charcoal mb-2 px-4;
+}
+
+.emptyDescription {
+  @apply text-sm sm:text-base text-dark-slate mb-4 sm:mb-6 px-4;
+}
+
+.emptyButton {
+  @apply inline-block px-6 py-3 bg-deep-teal text-white font-semibold rounded-lg hover:bg-dark-slate transition-colors duration-200;
+}
+
+.challengesGrid {
+  @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10;
+}
+
+.viewAllSection {
+  @apply text-center;
+}
+
+.viewAllButton {
+  @apply inline-flex items-center gap-2 px-8 py-4 bg-deep-teal text-white font-semibold text-lg rounded-lg hover:bg-dark-slate transition-colors duration-200;
+}
+
+.viewAllIcon {
+  @apply w-5 h-5;
+}

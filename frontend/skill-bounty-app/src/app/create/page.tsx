@@ -5,10 +5,12 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Program, AnchorProvider, BN } from "@coral-xyz/anchor";
 import { SystemProgram } from "@solana/web3.js";
 import { useRouter } from "next/navigation";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
+import dynamic from "next/dynamic";
 import Toast from "@/components/Toast";
 import { useToast } from "@/hooks/useToast";
+
+const Navbar = dynamic(() => import("@/components/Navbar"), { ssr: false });
+const Footer = dynamic(() => import("@/components/Footer"), { ssr: false });
 import {
   PROGRAM_ID,
   MAX_TITLE_LENGTH,
@@ -180,20 +182,20 @@ export default function CreateChallenge() {
       <main className="container mx-auto px-4 py-12">
         {/* Header */}
         <div className="text-center mb-12 max-w-3xl mx-auto">
-          <h1 className="text-6xl font-extrabold mb-4 text-white">
-            Create a <span className="bg-gradient-to-r from-accent-purple to-accent-pink bg-clip-text text-transparent">Skill Challenge</span>
+          <h1 className="text-4xl md:text-5xl font-bold mb-3 text-deep-teal">
+            Create a Skill Challenge
           </h1>
-          <p className="text-xl text-gray-300">
+          <p className="text-lg text-dark-slate">
             Set a challenge and reward the best solution with SOL
           </p>
         </div>
 
         {/* Form */}
         <div className="max-w-3xl mx-auto">
-          <div className="bg-white border-2 border-border-light rounded-2xl p-8 shadow-lg">
+          <div className="bg-white border-2 border-border-light rounded-xl p-8 shadow-sm">
             {!wallet.publicKey && (
-              <div className="mb-6 p-4 bg-orange-50 border-2 border-orange-200 rounded-xl">
-                <p className="text-orange-700 text-center font-medium flex items-center justify-center gap-2">
+              <div className="mb-6 p-4 bg-muted-teal/10 border-2 border-muted-teal/30 rounded-lg">
+                <p className="text-deep-teal text-center font-medium flex items-center justify-center gap-2">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
@@ -202,15 +204,15 @@ export default function CreateChallenge() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-8">
+            <form onSubmit={handleSubmit} className="space-y-6">
               {/* Title */}
               <div>
                 <label
                   htmlFor="title"
-                  className="block text-text-primary font-bold mb-3 text-lg"
+                  className="block text-deep-teal font-semibold mb-2"
                 >
                   Challenge Title
-                  <span className="text-accent-pink ml-1">*</span>
+                  <span className="text-dark-slate ml-1">*</span>
                 </label>
                 <input
                   type="text"
@@ -219,15 +221,15 @@ export default function CreateChallenge() {
                   value={formData.title}
                   onChange={handleChange}
                   maxLength={MAX_TITLE_LENGTH}
-                  className="w-full px-4 py-4 bg-gray-50 border-2 border-border-light rounded-xl text-text-primary placeholder-text-muted focus:outline-none focus:border-accent-purple focus:bg-white transition-all"
+                  className="w-full px-4 py-3 bg-white border-2 border-border-light rounded-lg text-deep-teal placeholder-muted-teal focus:outline-none focus:border-muted-teal transition-colors"
                   placeholder="e.g., Build a Solana NFT Marketplace"
                   disabled={isSubmitting}
                 />
                 <div className="flex justify-between mt-2">
                   {errors.title && (
-                    <p className="text-red-600 text-sm font-medium">{errors.title}</p>
+                    <p className="text-dark-slate text-sm font-medium">{errors.title}</p>
                   )}
-                  <p className="text-text-muted text-sm ml-auto">
+                  <p className="text-muted-teal text-sm ml-auto">
                     {formData.title.length}/{MAX_TITLE_LENGTH}
                   </p>
                 </div>
@@ -237,10 +239,10 @@ export default function CreateChallenge() {
               <div>
                 <label
                   htmlFor="description"
-                  className="block text-text-primary font-bold mb-3 text-lg"
+                  className="block text-deep-teal font-semibold mb-2"
                 >
                   Description
-                  <span className="text-accent-pink ml-1">*</span>
+                  <span className="text-dark-slate ml-1">*</span>
                 </label>
                 <textarea
                   id="description"
@@ -249,15 +251,15 @@ export default function CreateChallenge() {
                   onChange={handleChange}
                   maxLength={MAX_DESCRIPTION_LENGTH}
                   rows={6}
-                  className="w-full px-4 py-4 bg-gray-50 border-2 border-border-light rounded-xl text-text-primary placeholder-text-muted focus:outline-none focus:border-accent-purple focus:bg-white transition-all resize-none"
+                  className="w-full px-4 py-3 bg-white border-2 border-border-light rounded-lg text-deep-teal placeholder-muted-teal focus:outline-none focus:border-muted-teal transition-colors resize-none"
                   placeholder="Describe the challenge requirements, acceptance criteria, and any specific guidelines..."
                   disabled={isSubmitting}
                 />
                 <div className="flex justify-between mt-2">
                   {errors.description && (
-                    <p className="text-red-600 text-sm font-medium">{errors.description}</p>
+                    <p className="text-dark-slate text-sm font-medium">{errors.description}</p>
                   )}
-                  <p className="text-text-muted text-sm ml-auto">
+                  <p className="text-muted-teal text-sm ml-auto">
                     {formData.description.length}/{MAX_DESCRIPTION_LENGTH}
                   </p>
                 </div>
@@ -268,13 +270,13 @@ export default function CreateChallenge() {
                 <div>
                   <label
                     htmlFor="bountyAmount"
-                    className="block text-text-primary font-bold mb-3 text-lg"
+                    className="block text-deep-teal font-semibold mb-2"
                   >
                     Bounty Amount (SOL)
-                    <span className="text-accent-pink ml-1">*</span>
+                    <span className="text-dark-slate ml-1">*</span>
                   </label>
                   <div className="relative">
-                    <svg className="absolute left-4 top-4 w-6 h-6 text-accent-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="absolute left-4 top-3.5 w-5 h-5 text-dark-slate" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <input
@@ -285,17 +287,17 @@ export default function CreateChallenge() {
                       onChange={handleChange}
                       step="0.01"
                       min="0.01"
-                      className="w-full pl-14 pr-4 py-4 bg-gray-50 border-2 border-border-light rounded-xl text-text-primary placeholder-text-muted focus:outline-none focus:border-accent-purple focus:bg-white transition-all"
+                      className="w-full pl-12 pr-4 py-3 bg-white border-2 border-border-light rounded-lg text-deep-teal placeholder-muted-teal focus:outline-none focus:border-muted-teal transition-colors"
                       placeholder="1.5"
                       disabled={isSubmitting}
                     />
                   </div>
                   {errors.bountyAmount && (
-                    <p className="text-red-600 text-sm font-medium mt-2">
+                    <p className="text-dark-slate text-sm font-medium mt-2">
                       {errors.bountyAmount}
                     </p>
                   )}
-                  <p className="text-text-muted text-sm mt-2">
+                  <p className="text-muted-teal text-sm mt-2">
                     Locked in escrow until winner selected
                   </p>
                 </div>
@@ -304,13 +306,13 @@ export default function CreateChallenge() {
                 <div>
                   <label
                     htmlFor="deadlineDays"
-                    className="block text-text-primary font-bold mb-3 text-lg"
+                    className="block text-deep-teal font-semibold mb-2"
                   >
                     Deadline (Days)
-                    <span className="text-accent-pink ml-1">*</span>
+                    <span className="text-dark-slate ml-1">*</span>
                   </label>
                   <div className="relative">
-                    <svg className="absolute left-4 top-4 w-6 h-6 text-accent-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="absolute left-4 top-3.5 w-5 h-5 text-muted-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <input
@@ -321,17 +323,17 @@ export default function CreateChallenge() {
                       onChange={handleChange}
                       min="1"
                       max="365"
-                      className="w-full pl-14 pr-4 py-4 bg-gray-50 border-2 border-border-light rounded-xl text-text-primary placeholder-text-muted focus:outline-none focus:border-accent-purple focus:bg-white transition-all"
+                      className="w-full pl-12 pr-4 py-3 bg-white border-2 border-border-light rounded-lg text-deep-teal placeholder-muted-teal focus:outline-none focus:border-muted-teal transition-colors"
                       placeholder="7"
                       disabled={isSubmitting}
                     />
                   </div>
                   {errors.deadlineDays && (
-                    <p className="text-red-600 text-sm font-medium mt-2">
+                    <p className="text-dark-slate text-sm font-medium mt-2">
                       {errors.deadlineDays}
                     </p>
                   )}
-                  <p className="text-text-muted text-sm mt-2">
+                  <p className="text-muted-teal text-sm mt-2">
                     Days from now until deadline
                   </p>
                 </div>
@@ -341,7 +343,7 @@ export default function CreateChallenge() {
               <button
                 type="submit"
                 disabled={!wallet.publicKey || isSubmitting}
-                className="w-full py-5 bg-gradient-to-r from-accent-purple to-accent-pink rounded-xl text-white font-bold text-lg hover:shadow-lg hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                className="w-full py-4 bg-deep-teal rounded-lg text-ash-grey font-semibold text-lg hover:bg-dark-slate transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-deep-teal shadow-md"
               >
                 {isSubmitting ? (
                   <span className="flex items-center justify-center">
@@ -374,61 +376,58 @@ export default function CreateChallenge() {
             </form>
           </div>
 
-          {/* Info Box - Redesigned */}
-          <div className="mt-12 relative overflow-hidden rounded-3xl bg-gradient-to-br from-purple-600/10 via-pink-500/5 to-transparent border border-purple-500/30 p-10 shadow-[0_20px_60px_rgba(124,58,237,0.15)]">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/5 rounded-full blur-3xl"></div>
-            <div className="relative">
-              <div className="flex items-center gap-4 mb-8">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-600/20 to-pink-600/20 flex items-center justify-center shadow-[0_8px_30px_rgba(124,58,237,0.2)]">
-                  <svg className="w-7 h-7 text-accent-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+          {/* Info Box */}
+          <div className="mt-10 bg-white rounded-xl border-2 border-border-light p-8">
+            <div className="flex items-start gap-4 mb-6">
+              <div className="w-12 h-12 rounded-lg bg-muted-teal/10 flex items-center justify-center flex-shrink-0">
+                <svg className="w-6 h-6 text-muted-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-deep-teal font-bold text-xl mb-1">How it works</h3>
+                <p className="text-dark-slate text-sm">Simple 4-step process</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex gap-4">
+                <div className="w-8 h-8 rounded-lg bg-deep-teal text-ash-grey flex items-center justify-center flex-shrink-0 font-bold">
+                  1
                 </div>
                 <div>
-                  <h3 className="text-white font-bold text-2xl">How it works</h3>
-                  <p className="text-gray-400 text-sm">Simple 4-step process</p>
+                  <h4 className="text-deep-teal font-semibold mb-1">Escrow Lock</h4>
+                  <p className="text-dark-slate text-sm">Your bounty is locked safely in a smart contract escrow</p>
                 </div>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="flex gap-4 p-5 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all group">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center flex-shrink-0 shadow-lg group-hover:scale-110 transition-transform">
-                    <span className="text-white text-xl font-bold">1</span>
-                  </div>
-                  <div>
-                    <h4 className="text-white font-bold mb-1">Escrow Lock</h4>
-                    <p className="text-gray-400 text-sm">Your bounty is locked safely in a smart contract escrow</p>
-                  </div>
+              <div className="flex gap-4">
+                <div className="w-8 h-8 rounded-lg bg-muted-teal text-white flex items-center justify-center flex-shrink-0 font-bold">
+                  2
                 </div>
-
-                <div className="flex gap-4 p-5 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all group">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center flex-shrink-0 shadow-lg group-hover:scale-110 transition-transform">
-                    <span className="text-white text-xl font-bold">2</span>
-                  </div>
-                  <div>
-                    <h4 className="text-white font-bold mb-1">Submissions Open</h4>
-                    <p className="text-gray-400 text-sm">Participants submit their solutions before the deadline</p>
-                  </div>
+                <div>
+                  <h4 className="text-deep-teal font-semibold mb-1">Submissions Open</h4>
+                  <p className="text-dark-slate text-sm">Participants submit their solutions before the deadline</p>
                 </div>
+              </div>
 
-                <div className="flex gap-4 p-5 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all group">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500 to-pink-600 flex items-center justify-center flex-shrink-0 shadow-lg group-hover:scale-110 transition-transform">
-                    <span className="text-white text-xl font-bold">3</span>
-                  </div>
-                  <div>
-                    <h4 className="text-white font-bold mb-1">Review & Select</h4>
-                    <p className="text-gray-400 text-sm">Review submissions and pick the best one as winner</p>
-                  </div>
+              <div className="flex gap-4">
+                <div className="w-8 h-8 rounded-lg bg-dark-slate text-white flex items-center justify-center flex-shrink-0 font-bold">
+                  3
                 </div>
+                <div>
+                  <h4 className="text-deep-teal font-semibold mb-1">Review & Select</h4>
+                  <p className="text-dark-slate text-sm">Review submissions and pick the best one as winner</p>
+                </div>
+              </div>
 
-                <div className="flex gap-4 p-5 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all group">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center flex-shrink-0 shadow-lg group-hover:scale-110 transition-transform">
-                    <span className="text-white text-xl font-bold">4</span>
-                  </div>
-                  <div>
-                    <h4 className="text-white font-bold mb-1">Auto Payout</h4>
-                    <p className="text-gray-400 text-sm">Winner receives the full bounty amount automatically</p>
-                  </div>
+              <div className="flex gap-4">
+                <div className="w-8 h-8 rounded-lg bg-dark-slate text-white flex items-center justify-center flex-shrink-0 font-bold">
+                  4
+                </div>
+                <div>
+                  <h4 className="text-deep-teal font-semibold mb-1">Auto Payout</h4>
+                  <p className="text-dark-slate text-sm">Winner receives the full bounty amount automatically</p>
                 </div>
               </div>
             </div>

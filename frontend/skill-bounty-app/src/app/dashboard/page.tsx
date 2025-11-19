@@ -5,12 +5,14 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Program, AnchorProvider } from "@coral-xyz/anchor";
 import { PublicKey } from "@solana/web3.js";
 import Link from "next/link";
-import Navbar from "@/components/Navbar";
-import ChallengeCard from "@/components/ChallengeCard";
-import Footer from "@/components/Footer";
+import dynamic from "next/dynamic";
 import { PROGRAM_ID } from "@/utils/constants";
 import { formatSOL, formatAddress } from "@/utils/format";
 import IDL from "@/utils/idl.json";
+
+const Navbar = dynamic(() => import("@/components/Navbar"), { ssr: false });
+const ChallengeCard = dynamic(() => import("@/components/ChallengeCard"), { ssr: false });
+const Footer = dynamic(() => import("@/components/Footer"), { ssr: false });
 
 interface Challenge {
   challengeId: number;
@@ -40,6 +42,7 @@ export default function Dashboard() {
   const [myChallenges, setMyChallenges] = useState<Challenge[]>([]);
   const [mySubmissions, setMySubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [challengeFilter, setChallengeFilter] = useState<"all" | "active" | "completed">("all");
   const [submissionFilter, setSubmissionFilter] = useState<"all" | "pending" | "won">("all");
 
@@ -54,6 +57,7 @@ export default function Dashboard() {
 
     try {
       setLoading(true);
+      setError(null);
 
       const provider = new AnchorProvider(connection, wallet as any, {
         commitment: "confirmed",
@@ -61,8 +65,13 @@ export default function Dashboard() {
 
       const program = new Program(IDL as any, provider);
 
-      // Fetch all challenges
-      const allChallenges = await (program.account as any).challenge.all();
+      // Fetch all challenges with timeout
+      const challengesPromise = (program.account as any).challenge.all();
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Request timed out")), 30000)
+      );
+
+      const allChallenges = await Promise.race([challengesPromise, timeoutPromise]) as any[];
 
       // Filter challenges created by user
       const userChallenges = allChallenges
@@ -81,72 +90,66 @@ export default function Dashboard() {
 
       setMyChallenges(userChallenges);
 
-      // Fetch user's submissions to any challenge
+      // Fetch user's submissions - OPTIMIZED APPROACH
       try {
-        const allUserSubmissions: Submission[] = [];
+        // Fetch all submissions at once (much more efficient than nested loops)
+        const submissionsPromise = (program.account as any).submission.all();
+        const submissionsTimeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Submissions fetch timed out")), 30000)
+        );
 
-        // Check all challenges for submissions by this user
-        for (const challenge of allChallenges) {
-          const challengeId = challenge.account.challengeId.toNumber();
+        const allSubmissions = await Promise.race([
+          submissionsPromise,
+          submissionsTimeoutPromise,
+        ]) as any[];
 
-          // Try a reasonable range of submission IDs
-          for (let i = 0; i < 20; i++) {
-            try {
-              const submissionIdBuffer = Buffer.alloc(8);
-              submissionIdBuffer.writeBigUInt64LE(BigInt(i));
+        // Filter submissions by this user and map to challenge titles
+        const allUserSubmissions: Submission[] = allSubmissions
+          .filter((s: any) => s.account.submitter.equals(wallet.publicKey))
+          .map((s: any) => {
+            // Find the challenge this submission belongs to
+            const challenge = allChallenges.find(
+              (c: any) => c.account.challengeId.toNumber() === s.account.challengeId.toNumber()
+            );
 
-              const challengeIdBuffer = Buffer.alloc(8);
-              challengeIdBuffer.writeBigUInt64LE(BigInt(challengeId));
-
-              const [submissionPDA] = PublicKey.findProgramAddressSync(
-                [
-                  Buffer.from("submission"),
-                  challengeIdBuffer,
-                  submissionIdBuffer,
-                ],
-                PROGRAM_ID
-              );
-
-              const accountInfo = await connection.getAccountInfo(submissionPDA);
-              if (accountInfo) {
-                const submissionAccount = await (
-                  program.account as any
-                ).submission.fetch(submissionPDA);
-
-                // Only add if submitted by this user
-                if (submissionAccount.submitter.equals(wallet.publicKey)) {
-                  allUserSubmissions.push({
-                    submissionId: submissionAccount.submissionId.toNumber(),
-                    challengeId: submissionAccount.challengeId.toNumber(),
-                    submitter: submissionAccount.submitter,
-                    proofUrl: submissionAccount.proofUrl,
-                    timestamp: submissionAccount.submittedAt.toNumber(),
-                    challengeTitle: challenge.account.title,
-                    isWinner: challenge.account.winner
-                      ? challenge.account.winner.equals(wallet.publicKey)
-                      : false,
-                  });
-                }
-              }
-            } catch (err) {
-              // Submission doesn't exist or error fetching, skip
-              continue;
-            }
-          }
-        }
-
-        // Sort by newest first
-        allUserSubmissions.sort((a, b) => b.timestamp - a.timestamp);
+            return {
+              submissionId: s.account.submissionId.toNumber(),
+              challengeId: s.account.challengeId.toNumber(),
+              submitter: s.account.submitter,
+              proofUrl: s.account.proofUrl,
+              timestamp: s.account.submittedAt.toNumber(),
+              challengeTitle: challenge?.account.title || "Unknown Challenge",
+              isWinner: challenge?.account.winner
+                ? challenge.account.winner.equals(wallet.publicKey)
+                : false,
+            };
+          })
+          .sort((a, b) => b.timestamp - a.timestamp);
 
         setMySubmissions(allUserSubmissions);
-      } catch (submissionError) {
+      } catch (submissionError: any) {
         console.error("Error fetching submissions:", submissionError);
         // Set empty array if submissions can't be fetched
         // User's challenges are still shown
         setMySubmissions([]);
+
+        // Only set error if it's not just empty submissions
+        if (submissionError.message && !submissionError.message.includes("timed out")) {
+          console.warn("Could not fetch submissions, but challenges loaded successfully");
+        }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching user data:", error);
+
+      // Set user-friendly error message
+      if (error.message === "Request timed out") {
+        setError("Request timed out. Please check your internet connection and try again.");
+      } else if (error.message?.includes("fetch")) {
+        setError("Unable to connect to the blockchain. Please try again later.");
+      } else {
+        setError("Failed to load dashboard data. Please refresh the page.");
+      }
+
       // Reset state on complete failure
       setMyChallenges([]);
       setMySubmissions([]);
@@ -184,15 +187,15 @@ export default function Dashboard() {
         <Navbar />
         <main className="container mx-auto px-4 py-20">
           <div className="text-center max-w-md mx-auto">
-            <div className="w-32 h-32 mx-auto mb-8 rounded-full bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center">
-              <svg className="w-16 h-16 text-accent-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-muted-teal/10 flex items-center justify-center">
+              <svg className="w-12 h-12 text-muted-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
             </div>
-            <h2 className="text-4xl font-bold text-white mb-4">
+            <h2 className="text-3xl font-bold text-deep-teal mb-3">
               Connect Your Wallet
             </h2>
-            <p className="text-lg text-gray-300 mb-8">
+            <p className="text-dark-slate">
               Please connect your wallet to view your personalized dashboard
             </p>
           </div>
@@ -208,104 +211,126 @@ export default function Dashboard() {
       <main className="container mx-auto px-4 py-12">
         {/* Header */}
         <div className="text-center mb-12">
-          <h1 className="text-6xl font-extrabold mb-4 text-white">
-            My <span className="bg-gradient-to-r from-accent-purple to-accent-pink bg-clip-text text-transparent">Dashboard</span>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 text-deep-teal">
+            My Dashboard
           </h1>
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-purple-50 border-2 border-accent-purple/20 rounded-full">
-            <svg className="w-5 h-5 text-accent-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-white border-2 border-muted-teal/20 rounded-full">
+            <svg className="w-5 h-5 text-muted-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
             </svg>
-            <p className="text-accent-purple font-mono font-bold">
+            <p className="text-muted-teal font-mono font-semibold">
               {formatAddress(wallet.publicKey.toString())}
             </p>
           </div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-16">
-          <div className="bg-white border-2 border-border-light rounded-2xl p-6 text-center hover:border-accent-purple hover:shadow-lg transition-all">
-            <p className="text-text-muted text-sm font-semibold mb-2 uppercase tracking-wider">Created</p>
-            <p className="text-5xl font-bold text-text-primary mb-2">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-12 max-w-6xl mx-auto">
+          <div className="bg-white border-2 border-border-light rounded-lg p-5 text-center hover:border-muted-teal transition-colors">
+            <p className="text-muted-teal text-xs font-semibold mb-2 uppercase">Created</p>
+            <p className="text-3xl font-bold text-deep-teal mb-1">
               {stats.totalChallengesCreated}
             </p>
-            <p className="text-xs text-text-muted">Total Challenges</p>
+            <p className="text-xs text-dark-slate">Total</p>
           </div>
 
-          <div className="bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-200 rounded-2xl p-6 text-center hover:shadow-lg transition-all">
-            <p className="text-green-700 text-sm font-semibold mb-2 uppercase tracking-wider">Active</p>
-            <p className="text-5xl font-bold text-green-600 mb-2">
+          <div className="bg-muted-teal/5 border-2 border-muted-teal/30 rounded-lg p-5 text-center hover:border-muted-teal transition-colors">
+            <p className="text-muted-teal text-xs font-semibold mb-2 uppercase">Active</p>
+            <p className="text-3xl font-bold text-muted-teal mb-1">
               {stats.activeChallenges}
             </p>
-            <p className="text-xs text-green-600">Live Now</p>
+            <p className="text-xs text-dark-slate">Live Now</p>
           </div>
 
-          <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 border-2 border-cyan-200 rounded-2xl p-6 text-center hover:shadow-lg transition-all">
-            <p className="text-cyan-700 text-sm font-semibold mb-2 uppercase tracking-wider">Bounty</p>
-            <p className="text-3xl font-bold text-cyan-600 mb-2">
+          <div className="bg-dark-slate/5 border-2 border-dark-slate/30 rounded-lg p-5 text-center hover:border-dark-slate transition-colors">
+            <p className="text-dark-slate text-xs font-semibold mb-2 uppercase">Bounty</p>
+            <p className="text-2xl font-bold text-dark-slate mb-1">
               {formatSOL(stats.totalBountyOffered)}
             </p>
-            <p className="text-xs text-cyan-600">In Escrow</p>
+            <p className="text-xs text-dark-slate">In Escrow</p>
           </div>
 
-          <div className="bg-gradient-to-br from-pink-50 to-pink-100 border-2 border-pink-200 rounded-2xl p-6 text-center hover:shadow-lg transition-all">
-            <p className="text-pink-700 text-sm font-semibold mb-2 uppercase tracking-wider">Submissions</p>
-            <p className="text-5xl font-bold text-pink-600 mb-2">
+          <div className="bg-deep-teal/5 border-2 border-deep-teal/30 rounded-lg p-5 text-center hover:border-deep-teal transition-colors">
+            <p className="text-deep-teal text-xs font-semibold mb-2 uppercase">Submissions</p>
+            <p className="text-3xl font-bold text-deep-teal mb-1">
               {stats.totalSubmissions}
             </p>
-            <p className="text-xs text-pink-600">Total</p>
+            <p className="text-xs text-dark-slate">Total</p>
           </div>
 
-          <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-2 border-yellow-200 rounded-2xl p-6 text-center hover:shadow-lg transition-all">
-            <p className="text-yellow-700 text-sm font-semibold mb-2 uppercase tracking-wider">Wins</p>
-            <p className="text-5xl font-bold text-yellow-600 mb-2">
+          <div className="bg-dark-slate/5 border-2 border-dark-slate/30 rounded-lg p-5 text-center hover:border-dark-slate transition-colors">
+            <p className="text-dark-slate text-xs font-semibold mb-2 uppercase">Wins</p>
+            <p className="text-3xl font-bold text-dark-slate mb-1">
               {stats.wonSubmissions}
             </p>
-            <p className="text-xs text-yellow-600">Challenges Won</p>
+            <p className="text-xs text-dark-slate">Won</p>
           </div>
         </div>
 
         {loading ? (
-          <div className="text-center py-32">
-            <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-accent-purple/20 border-t-accent-purple"></div>
-            <p className="mt-6 text-gray-300 font-medium text-lg">Loading dashboard...</p>
+          <div className="text-center py-20">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-muted-teal/20 border-t-muted-teal"></div>
+            <p className="mt-4 text-dark-slate font-medium">Loading dashboard...</p>
+            <p className="mt-2 text-sm text-muted-teal">Fetching your challenges and submissions...</p>
+          </div>
+        ) : error ? (
+          <div className="text-center py-20 max-w-md mx-auto">
+            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-dark-slate/10 flex items-center justify-center">
+              <svg className="w-10 h-10 text-dark-slate" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h3 className="text-2xl font-bold text-deep-teal mb-3">
+              Unable to Load Dashboard
+            </h3>
+            <p className="text-dark-slate mb-6">{error}</p>
+            <button
+              onClick={fetchUserData}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-deep-teal text-ash-grey font-semibold rounded-lg hover:bg-dark-slate transition-colors duration-200"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Try Again
+            </button>
           </div>
         ) : (
           <>
             {/* My Challenges Section */}
-            <section className="mb-20">
+            <section className="mb-16">
               <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
-                <h2 className="text-4xl font-bold text-white">
-                  My Challenges <span className="text-accent-purple">({myChallenges.length})</span>
+                <h2 className="text-3xl font-bold text-deep-teal">
+                  My Challenges <span className="text-muted-teal">({myChallenges.length})</span>
                 </h2>
 
                 {/* Filter Tabs */}
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setChallengeFilter("all")}
-                    className={`px-6 py-2.5 rounded-xl font-semibold text-sm transition-all ${
+                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
                       challengeFilter === "all"
-                        ? "bg-gradient-to-r from-accent-purple to-accent-pink text-white shadow-lg"
-                        : "bg-white border-2 border-border-light text-text-secondary hover:border-accent-purple"
+                        ? "bg-deep-teal text-ash-grey"
+                        : "bg-white border-2 border-border-light text-dark-slate hover:border-muted-teal"
                     }`}
                   >
                     All
                   </button>
                   <button
                     onClick={() => setChallengeFilter("active")}
-                    className={`px-6 py-2.5 rounded-xl font-semibold text-sm transition-all ${
+                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
                       challengeFilter === "active"
-                        ? "bg-gradient-to-r from-accent-purple to-accent-pink text-white shadow-lg"
-                        : "bg-white border-2 border-border-light text-text-secondary hover:border-accent-purple"
+                        ? "bg-muted-teal text-white"
+                        : "bg-white border-2 border-border-light text-dark-slate hover:border-muted-teal"
                     }`}
                   >
                     Active
                   </button>
                   <button
                     onClick={() => setChallengeFilter("completed")}
-                    className={`px-6 py-2.5 rounded-xl font-semibold text-sm transition-all ${
+                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
                       challengeFilter === "completed"
-                        ? "bg-gradient-to-r from-accent-purple to-accent-pink text-white shadow-lg"
-                        : "bg-white border-2 border-border-light text-text-secondary hover:border-accent-purple"
+                        ? "bg-dark-slate text-white"
+                        : "bg-white border-2 border-border-light text-dark-slate hover:border-muted-teal"
                     }`}
                   >
                     Completed
@@ -314,19 +339,19 @@ export default function Dashboard() {
               </div>
 
               {filteredChallenges.length === 0 ? (
-                <div className="text-center py-20 bg-white border-2 border-border-light rounded-2xl">
-                  <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center">
-                    <span className="text-5xl">📝</span>
+                <div className="text-center py-16 bg-white border-2 border-border-light rounded-xl">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted-teal/10 flex items-center justify-center">
+                    <span className="text-3xl">📝</span>
                   </div>
-                  <h3 className="text-2xl font-bold text-text-primary mb-2">
+                  <h3 className="text-2xl font-bold text-deep-teal mb-2">
                     No challenges yet
                   </h3>
-                  <p className="text-text-secondary mb-8">
+                  <p className="text-dark-slate mb-6">
                     Create your first challenge and start offering bounties!
                   </p>
                   <Link
                     href="/create"
-                    className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-accent-purple to-accent-pink rounded-xl text-white font-bold hover:shadow-lg hover:scale-105 transition-all"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-deep-teal text-ash-grey font-semibold rounded-lg hover:bg-dark-slate transition-colors duration-200"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -356,38 +381,38 @@ export default function Dashboard() {
             {/* My Submissions Section */}
             <section>
               <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
-                <h2 className="text-4xl font-bold text-white">
-                  My Submissions <span className="text-accent-cyan">({mySubmissions.length})</span>
+                <h2 className="text-3xl font-bold text-deep-teal">
+                  My Submissions <span className="text-muted-teal">({mySubmissions.length})</span>
                 </h2>
 
                 {/* Filter Tabs */}
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setSubmissionFilter("all")}
-                    className={`px-6 py-2.5 rounded-xl font-semibold text-sm transition-all ${
+                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
                       submissionFilter === "all"
-                        ? "bg-gradient-to-r from-accent-purple to-accent-pink text-white shadow-lg"
-                        : "bg-white border-2 border-border-light text-text-secondary hover:border-accent-purple"
+                        ? "bg-deep-teal text-ash-grey"
+                        : "bg-white border-2 border-border-light text-dark-slate hover:border-muted-teal"
                     }`}
                   >
                     All
                   </button>
                   <button
                     onClick={() => setSubmissionFilter("pending")}
-                    className={`px-6 py-2.5 rounded-xl font-semibold text-sm transition-all ${
+                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
                       submissionFilter === "pending"
-                        ? "bg-gradient-to-r from-accent-purple to-accent-pink text-white shadow-lg"
-                        : "bg-white border-2 border-border-light text-text-secondary hover:border-accent-purple"
+                        ? "bg-muted-teal text-white"
+                        : "bg-white border-2 border-border-light text-dark-slate hover:border-muted-teal"
                     }`}
                   >
                     Pending
                   </button>
                   <button
                     onClick={() => setSubmissionFilter("won")}
-                    className={`px-6 py-2.5 rounded-xl font-semibold text-sm transition-all ${
+                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
                       submissionFilter === "won"
-                        ? "bg-gradient-to-r from-accent-purple to-accent-pink text-white shadow-lg"
-                        : "bg-white border-2 border-border-light text-text-secondary hover:border-accent-purple"
+                        ? "bg-dark-slate text-white"
+                        : "bg-white border-2 border-border-light text-dark-slate hover:border-muted-teal"
                     }`}
                   >
                     Won
@@ -396,19 +421,19 @@ export default function Dashboard() {
               </div>
 
               {filteredSubmissions.length === 0 ? (
-                <div className="text-center py-20 bg-white border-2 border-border-light rounded-2xl">
-                  <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-cyan-100 to-blue-100 flex items-center justify-center">
-                    <span className="text-5xl">🎯</span>
+                <div className="text-center py-16 bg-white border-2 border-border-light rounded-xl">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted-teal/10 flex items-center justify-center">
+                    <span className="text-3xl">🎯</span>
                   </div>
-                  <h3 className="text-2xl font-bold text-text-primary mb-2">
+                  <h3 className="text-2xl font-bold text-deep-teal mb-2">
                     No submissions yet
                   </h3>
-                  <p className="text-text-secondary mb-8">
+                  <p className="text-dark-slate mb-6">
                     Browse challenges and submit your solutions!
                   </p>
                   <Link
                     href="/"
-                    className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-accent-purple to-accent-pink rounded-xl text-white font-bold hover:shadow-lg hover:scale-105 transition-all"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-deep-teal text-ash-grey font-semibold rounded-lg hover:bg-dark-slate transition-colors duration-200"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -418,41 +443,45 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {filteredSubmissions.map((submission) => (
+                  {filteredSubmissions.map((submission, index) => (
                     <div
                       key={submission.submissionId}
-                      className={`p-6 rounded-2xl border-2 transition-all ${
+                      className={`p-6 rounded-lg border-2 transition-all ${
                         submission.isWinner
-                          ? "bg-gradient-to-br from-purple-50 to-pink-50 border-accent-purple shadow-lg"
-                          : "bg-white border-border-light hover:border-accent-cyan"
+                          ? "bg-dark-slate/5 border-dark-slate/50"
+                          : "bg-white border-border-light hover:border-muted-teal"
                       }`}
                     >
                       <div className="flex flex-wrap items-start justify-between gap-4">
                         <div className="flex-1 min-w-[300px]">
-                          <div className="flex items-center gap-3 mb-3">
+                          <div className="flex items-center gap-3 mb-2">
                             <Link
                               href={`/challenge/${submission.challengeId}`}
-                              className="text-xl font-bold text-text-primary hover:text-accent-purple transition-colors"
+                              className="text-xl font-bold text-deep-teal hover:text-muted-teal transition-colors"
                             >
                               {submission.challengeTitle}
                             </Link>
                             {submission.isWinner && (
-                              <span className="px-4 py-1.5 bg-gradient-to-r from-yellow-400 to-orange-400 text-white text-xs font-bold rounded-full flex items-center gap-1 shadow-md">
-                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                </svg>
+                              <span className="px-3 py-1 bg-dark-slate text-white text-xs font-bold rounded-full flex items-center gap-1">
+                                <span>🏆</span>
                                 WINNER
                               </span>
                             )}
                           </div>
-                          <p className="text-text-muted text-sm mb-2 font-semibold">
-                            Submission #{submission.submissionId}
-                          </p>
+                          <div className="flex items-center gap-2 mb-2">
+                            <p className="text-muted-teal text-sm font-medium">
+                              Your submission #{index + 1}
+                            </p>
+                            <span className="text-dark-slate/40 text-xs">•</span>
+                            <p className="text-dark-slate/60 text-xs font-mono">
+                              ID: {submission.submissionId}
+                            </p>
+                          </div>
                           <div className="flex items-center gap-2 text-sm">
-                            <svg className="w-4 h-4 text-accent-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 text-muted-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                             </svg>
-                            <p className="text-text-secondary break-all font-mono text-xs">
+                            <p className="text-dark-slate break-all font-mono text-xs">
                               {submission.proofUrl}
                             </p>
                           </div>
@@ -463,13 +492,13 @@ export default function Dashboard() {
                             href={submission.proofUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="px-5 py-2.5 bg-white border-2 border-border-medium hover:border-accent-cyan rounded-xl text-text-primary text-sm font-semibold transition-all hover:shadow-md"
+                            className="px-5 py-2.5 bg-white border-2 border-muted-teal hover:bg-muted-teal hover:text-white rounded-lg text-deep-teal text-sm font-semibold transition-all"
                           >
-                            View Proof →
+                            View Proof
                           </a>
                           <Link
                             href={`/challenge/${submission.challengeId}`}
-                            className="px-5 py-2.5 bg-gradient-to-r from-accent-purple to-accent-pink rounded-xl text-white text-sm font-bold hover:shadow-lg hover:scale-105 transition-all"
+                            className="px-5 py-2.5 bg-deep-teal rounded-lg text-ash-grey text-sm font-semibold hover:bg-dark-slate transition-all"
                           >
                             View Challenge
                           </Link>

@@ -9,35 +9,36 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        primary: {
-          bg: "#000000",
-          secondary: "#ffffff",
-        },
-        accent: {
-          purple: "#7c3aed",
-          cyan: "#0891b2",
-          pink: "#db2777",
-          orange: "#ea580c",
-        },
+        // Main palette
+        "ash-grey": "#cad2c5",
+        "muted-teal": "#84a98c",
+        "deep-teal": "#52796f",
+        "dark-slate": "#354f52",
+        "charcoal": "#2f3e46",
+
+        // Background colors
+        "primary-bg": "#f5f7f4",
+        "secondary-bg": "#ffffff",
+        "card-bg": "#ffffff",
+
+        // Text colors
         text: {
-          primary: "#0f172a",
-          secondary: "#475569",
-          muted: "#94a3b8",
+          primary: "#2f3e46",
+          secondary: "#354f52",
+          muted: "#84a98c",
         },
+
+        // Border colors
         border: {
-          light: "#e2e8f0",
-          medium: "#cbd5e1",
+          light: "#e8ebe7",
+          medium: "#cad2c5",
         },
+
+        // Status colors
         status: {
-          active: "#059669",
-          pending: "#d97706",
-          completed: "#6366f1",
+          active: "#84a98c",
+          completed: "#52796f",
         },
-      },
-      backgroundImage: {
-        'gradient-primary': 'linear-gradient(135deg, #7c3aed 0%, #db2777 100%)',
-        'gradient-secondary': 'linear-gradient(135deg, #0891b2 0%, #7c3aed 100%)',
-        'gradient-accent': 'linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)',
       },
     },
   },

@@ -5,9 +5,12 @@ import { useParams, useRouter } from "next/navigation";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Program, AnchorProvider, BN } from "@coral-xyz/anchor";
 import { PublicKey, SystemProgram } from "@solana/web3.js";
-import Navbar from "@/components/Navbar";
+import dynamic from "next/dynamic";
 import Toast from "@/components/Toast";
 import { useToast } from "@/hooks/useToast";
+import ConfirmModal from "@/components/ConfirmModal";
+
+const Navbar = dynamic(() => import("@/components/Navbar"), { ssr: false });
 import {
   PROGRAM_ID,
   MAX_PROOF_URL_LENGTH,
@@ -64,6 +67,9 @@ export default function ChallengePage() {
   const [proofUrl, setProofUrl] = useState("");
   const [proofUrlError, setProofUrlError] = useState("");
 
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [selectedWinner, setSelectedWinner] = useState<PublicKey | null>(null);
+
   useEffect(() => {
     fetchChallengeData();
   }, [challengeId, connection]);
@@ -99,18 +105,15 @@ export default function ChallengePage() {
       setChallenge(challengeData);
 
       // Fetch submissions for this challenge
-      // Strategy: Try to fetch by individual PDAs since submission.all() often fails
       try {
         const challengeSubmissions: Submission[] = [];
 
-        // Get total submissions to know how many to try
         const [submissionCounterPDA] = getSubmissionCounterPDA(PROGRAM_ID);
         const counterAccount = await (
           program.account as any
         ).submissionCounter.fetch(submissionCounterPDA);
         const totalSubmissions = (counterAccount.totalSubmissions as BN).toNumber();
 
-        // Try to fetch each possible submission PDA for this challenge
         for (let i = 0; i < totalSubmissions; i++) {
           try {
             const [submissionPDA] = getSubmissionPDA(challengeId, i, PROGRAM_ID);
@@ -118,7 +121,6 @@ export default function ChallengePage() {
               program.account as any
             ).submission.fetch(submissionPDA);
 
-            // Only add if it belongs to this challenge
             if (submissionAccount.challengeId.toNumber() === challengeId) {
               challengeSubmissions.push({
                 submissionId: submissionAccount.submissionId.toNumber(),
@@ -129,19 +131,14 @@ export default function ChallengePage() {
               });
             }
           } catch (err) {
-            // Submission doesn't exist at this PDA, skip
             continue;
           }
         }
 
-        // Sort by newest first
         challengeSubmissions.sort((a, b) => b.timestamp - a.timestamp);
-
         setSubmissions(challengeSubmissions);
       } catch (submissionErr) {
         console.error("Error fetching submissions:", submissionErr);
-        // Don't fail the entire page if submissions can't be fetched
-        // Challenge data is still valid
         setSubmissions([]);
       }
     } catch (err) {
@@ -165,7 +162,6 @@ export default function ChallengePage() {
 
     if (!challenge) return;
 
-    // Validation
     if (!proofUrl.trim()) {
       setProofUrlError("Proof URL is required");
       return;
@@ -178,7 +174,6 @@ export default function ChallengePage() {
       return;
     }
 
-    // Check if URL is valid
     try {
       new URL(proofUrl);
     } catch {
@@ -195,14 +190,12 @@ export default function ChallengePage() {
 
       const program = new Program(IDL as any, provider);
 
-      // Get submission counter
       const [submissionCounterPDA] = getSubmissionCounterPDA(PROGRAM_ID);
       const counterAccount = await (
         program.account as any
       ).submissionCounter.fetch(submissionCounterPDA);
       const nextSubmissionId = (counterAccount.totalSubmissions as BN).toNumber();
 
-      // Get PDAs
       const [challengePDA] = getChallengePDA(challengeId, PROGRAM_ID);
       const [submissionPDA] = getSubmissionPDA(
         challengeId,
@@ -210,7 +203,6 @@ export default function ChallengePage() {
         PROGRAM_ID
       );
 
-      // Submit solution
       const tx = await program.methods
         .submitSolution(new BN(challengeId), proofUrl.trim())
         .accounts({
@@ -243,18 +235,12 @@ export default function ChallengePage() {
 
   const handleSelectWinner = async (winnerPubkey: PublicKey) => {
     if (!wallet.publicKey || !challenge) return;
+    setSelectedWinner(winnerPubkey);
+    setShowConfirmModal(true);
+  };
 
-    if (
-      !confirm(
-        `Are you sure you want to select ${formatAddress(
-          winnerPubkey.toString()
-        )} as the winner?\n\nThis will transfer ${formatSOL(
-          challenge.bountyAmount
-        )} to them and close the challenge.`
-      )
-    ) {
-      return;
-    }
+  const confirmSelectWinner = async () => {
+    if (!selectedWinner || !wallet.publicKey || !challenge) return;
 
     setSelectingWinner(true);
 
@@ -272,7 +258,7 @@ export default function ChallengePage() {
         .accounts({
           challenge: challengePDA,
           creator: wallet.publicKey,
-          winner: winnerPubkey,
+          winner: selectedWinner,
           systemProgram: SystemProgram.programId,
         })
         .rpc();
@@ -280,6 +266,7 @@ export default function ChallengePage() {
       success("Winner selected successfully!");
 
       await fetchChallengeData();
+      setShowConfirmModal(false);
     } catch (err: any) {
       console.error("Failed to select winner:", err);
 
@@ -311,7 +298,6 @@ export default function ChallengePage() {
       <div className="min-h-screen bg-primary-bg">
         <Navbar />
 
-        {/* Toast Notifications */}
         {toasts.map((toast) => (
           <Toast
             key={toast.id}
@@ -322,8 +308,8 @@ export default function ChallengePage() {
         ))}
         <main className="container mx-auto px-4 py-8">
           <div className="text-center py-20">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-accent-purple border-t-transparent"></div>
-            <p className="mt-4 text-gray-400">Loading challenge...</p>
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-muted-teal/20 border-t-muted-teal"></div>
+            <p className="mt-4 text-dark-slate">Loading challenge...</p>
           </div>
         </main>
       </div>
@@ -336,7 +322,7 @@ export default function ChallengePage() {
         <Navbar />
         <main className="container mx-auto px-4 py-8">
           <div className="text-center py-20">
-            <p className="text-red-400">Challenge not found</p>
+            <p className="text-dark-slate">Challenge not found</p>
           </div>
         </main>
       </div>
@@ -347,7 +333,6 @@ export default function ChallengePage() {
     <div className="min-h-screen bg-primary-bg">
       <Navbar />
 
-      {/* Toast Notifications */}
       {toasts.map((toast) => (
         <Toast
           key={toast.id}
@@ -357,60 +342,67 @@ export default function ChallengePage() {
         />
       ))}
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-8 max-w-6xl">
         {/* Back Button */}
         <button
           onClick={() => router.push("/")}
-          className="mb-6 text-gray-400 hover:text-white transition-colors flex items-center"
+          className="mb-6 text-dark-slate hover:text-deep-teal transition-colors flex items-center gap-2 font-medium group"
         >
-          ← Back to challenges
+          <svg className="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          Back to challenges
         </button>
 
-        {/* Challenge Header */}
-        <div className="bg-gradient-to-br from-[#1a1f3a] to-[#0f1325] border border-accent-purple/30 rounded-2xl p-8 mb-8 shadow-xl">
-          {/* Title and Status */}
+        {/* Challenge Header Card */}
+        <div className="bg-white rounded-2xl border-2 border-border-light p-8 mb-8 shadow-sm">
+          {/* Title Row */}
           <div className="flex items-start justify-between mb-6">
             <div className="flex-1">
-              <div className="flex items-center gap-3 mb-4">
-                <h1 className="text-5xl font-bold text-white">
-                  {challenge.title}
-                </h1>
+              <div className="flex items-center gap-3 mb-3">
+                <span className="text-sm text-muted-teal font-semibold">
+                  CHALLENGE #{challenge.challengeId}
+                </span>
                 <span
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide ${
+                  className={`px-3 py-1 rounded-full text-xs font-bold ${
                     challenge.isActive
-                      ? "bg-green-500/20 text-green-400 border border-green-500/50"
-                      : "bg-purple-500/20 text-purple-400 border border-purple-500/50"
+                      ? "bg-muted-teal/10 text-muted-teal border border-muted-teal"
+                      : "bg-dark-slate/10 text-dark-slate border border-dark-slate"
                   }`}
                 >
-                  {challenge.isActive ? "🔥 Active" : "✓ Completed"}
+                  {challenge.isActive ? "ACTIVE" : "COMPLETED"}
                 </span>
               </div>
-              <p className="text-gray-300 text-lg leading-relaxed max-w-4xl">
+              <h1 className="text-3xl md:text-4xl font-bold text-charcoal mb-4">
+                {challenge.title}
+              </h1>
+              <p className="text-dark-slate leading-relaxed">
                 {challenge.description}
               </p>
             </div>
           </div>
 
-          {/* Winner Banner - Show prominently if winner exists */}
+          {/* Winner Banner */}
           {challenge.winner && (
-            <div className="mb-6 p-6 bg-gradient-to-r from-yellow-500/10 via-accent-purple/10 to-accent-pink/10 border-2 border-yellow-500/30 rounded-xl">
-              <div className="flex items-center justify-between">
+            <div className="mb-6 p-6 bg-deep-teal/5 border-2 border-deep-teal/20 rounded-xl">
+              <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
-                  <p className="text-yellow-400 font-bold text-2xl mb-2 flex items-center">
-                    <span className="text-3xl mr-3">🏆</span>
-                    Winner Announced!
-                  </p>
-                  <p className="text-gray-300 text-sm">
-                    Congratulations to:{" "}
-                    <span className="text-accent-cyan font-mono text-base font-semibold">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-2xl">🏆</span>
+                    <p className="text-deep-teal font-bold text-xl">
+                      Winner Announced!
+                    </p>
+                  </div>
+                  <p className="text-dark-slate">
+                    Winner:{" "}
+                    <span className="text-deep-teal font-mono font-semibold">
                       {formatAddress(challenge.winner.toString())}
                     </span>
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-gray-400 text-sm mb-1">Prize Awarded</p>
-                  <p className="text-accent-cyan text-3xl font-bold flex items-center">
-                    <span className="mr-2">💎</span>
+                  <p className="text-muted-teal text-sm mb-1">Prize</p>
+                  <p className="text-deep-teal text-3xl font-bold">
                     {formatSOL(challenge.bountyAmount)}
                   </p>
                 </div>
@@ -419,56 +411,52 @@ export default function ChallengePage() {
           )}
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 rounded-xl p-5 hover:border-cyan-500/50 transition-all">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-gray-400 text-xs uppercase tracking-wider font-semibold">Bounty Reward</p>
-                <span className="text-2xl">💰</span>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="p-4 rounded-lg bg-deep-teal/5 border border-deep-teal/20">
+              <div className="flex items-center gap-2 mb-2">
+                <svg className="w-5 h-5 text-deep-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-xs font-semibold text-muted-teal uppercase">Bounty</span>
               </div>
-              <p className="text-accent-cyan text-3xl font-bold">
+              <p className="text-2xl font-bold text-deep-teal">
                 {formatSOL(challenge.bountyAmount)}
               </p>
-              <p className="text-cyan-300 text-xs mt-1 opacity-75">
-                {!challenge.isActive ? "Claimed" : "Unclaimed"}
-              </p>
             </div>
 
-            <div className="bg-gradient-to-br from-orange-500/10 to-red-500/10 border border-orange-500/30 rounded-xl p-5 hover:border-orange-500/50 transition-all">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-gray-400 text-xs uppercase tracking-wider font-semibold">Time Left</p>
-                <span className="text-2xl">⏰</span>
+            <div className="p-4 rounded-lg bg-muted-teal/5 border border-muted-teal/20">
+              <div className="flex items-center gap-2 mb-2">
+                <svg className="w-5 h-5 text-muted-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-xs font-semibold text-muted-teal uppercase">Deadline</span>
               </div>
-              <p className={`text-2xl font-bold ${isDeadlinePassed ? "text-red-400" : "text-orange-400"}`}>
+              <p className={`text-xl font-bold ${isDeadlinePassed ? "text-dark-slate" : "text-muted-teal"}`}>
                 {formatDeadline(challenge.deadline)}
               </p>
-              <p className="text-orange-300 text-xs mt-1 opacity-75">
-                {isDeadlinePassed ? "Deadline passed" : "Until deadline"}
-              </p>
             </div>
 
-            <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/30 rounded-xl p-5 hover:border-purple-500/50 transition-all">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-gray-400 text-xs uppercase tracking-wider font-semibold">Total Submissions</p>
-                <span className="text-2xl">📝</span>
+            <div className="p-4 rounded-lg bg-dark-slate/5 border border-dark-slate/20">
+              <div className="flex items-center gap-2 mb-2">
+                <svg className="w-5 h-5 text-dark-slate" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span className="text-xs font-semibold text-muted-teal uppercase">Submissions</span>
               </div>
-              <p className="text-white text-3xl font-bold">
+              <p className="text-2xl font-bold text-dark-slate">
                 {challenge.submissionCount}
               </p>
-              <p className="text-purple-300 text-xs mt-1 opacity-75">
-                {challenge.submissionCount === 0 ? "No submissions yet" : `${submissions.length} loaded`}
-              </p>
             </div>
 
-            <div className="bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-indigo-500/30 rounded-xl p-5 hover:border-indigo-500/50 transition-all">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-gray-400 text-xs uppercase tracking-wider font-semibold">Challenge Creator</p>
-                <span className="text-2xl">👤</span>
+            <div className="p-4 rounded-lg bg-ash-grey/30 border border-ash-grey">
+              <div className="flex items-center gap-2 mb-2">
+                <svg className="w-5 h-5 text-dark-slate" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <span className="text-xs font-semibold text-muted-teal uppercase">Creator</span>
               </div>
-              <p className="text-accent-purple text-lg font-mono font-semibold">
+              <p className="text-sm font-mono font-semibold text-deep-teal truncate">
                 {formatAddress(challenge.creator.toString())}
-              </p>
-              <p className="text-indigo-300 text-xs mt-1 opacity-75">
-                {isCreator ? "You" : "Other"}
               </p>
             </div>
           </div>
@@ -476,23 +464,23 @@ export default function ChallengePage() {
 
         {/* Submit Solution Form */}
         {challenge.isActive && !isCreator && !hasSubmitted && (
-          <div className="bg-gradient-to-br from-[#1a1f3a] to-[#0f1325] border border-accent-purple/30 rounded-2xl p-8 mb-8 shadow-lg">
-            <h2 className="text-2xl font-bold text-white mb-4">
+          <div className="bg-white border-2 border-border-light rounded-xl p-8 mb-8 shadow-sm">
+            <h2 className="text-2xl font-bold text-charcoal mb-6">
               Submit Your Solution
             </h2>
 
             {!wallet.publicKey && (
-              <div className="mb-6 p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg">
-                <p className="text-orange-400 text-center">
-                  ⚠️ Please connect your wallet to submit a solution
+              <div className="mb-6 p-4 bg-muted-teal/10 border border-muted-teal/20 rounded-lg">
+                <p className="text-deep-teal text-center font-medium">
+                  Please connect your wallet to submit a solution
                 </p>
               </div>
             )}
 
             {isDeadlinePassed && (
-              <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
-                <p className="text-red-400 text-center">
-                  ⚠️ The deadline for this challenge has passed
+              <div className="mb-6 p-4 bg-dark-slate/10 border border-dark-slate/20 rounded-lg">
+                <p className="text-dark-slate text-center font-medium">
+                  The deadline for this challenge has passed
                 </p>
               </div>
             )}
@@ -501,10 +489,10 @@ export default function ChallengePage() {
               <div>
                 <label
                   htmlFor="proofUrl"
-                  className="block text-white font-semibold mb-2"
+                  className="block text-charcoal font-semibold mb-2"
                 >
                   Proof URL (GitHub, Figma, Drive, etc.)
-                  <span className="text-accent-pink ml-1">*</span>
+                  <span className="text-dark-slate ml-1">*</span>
                 </label>
                 <input
                   type="url"
@@ -515,16 +503,16 @@ export default function ChallengePage() {
                     setProofUrlError("");
                   }}
                   maxLength={MAX_PROOF_URL_LENGTH}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-accent-purple/50 focus:ring-2 focus:ring-accent-purple/20"
+                  className="w-full px-4 py-3 bg-white border-2 border-border-light rounded-lg text-charcoal placeholder-muted-teal focus:outline-none focus:border-muted-teal transition-colors"
                   placeholder="https://github.com/username/repo"
                   disabled={
                     submitting || !wallet.publicKey || isDeadlinePassed
                   }
                 />
                 {proofUrlError && (
-                  <p className="text-red-400 text-sm mt-1">{proofUrlError}</p>
+                  <p className="text-dark-slate text-sm mt-1">{proofUrlError}</p>
                 )}
-                <p className="text-gray-500 text-sm mt-1">
+                <p className="text-muted-teal text-sm mt-1">
                   {proofUrl.length}/{MAX_PROOF_URL_LENGTH}
                 </p>
               </div>
@@ -537,7 +525,7 @@ export default function ChallengePage() {
                   !proofUrl ||
                   isDeadlinePassed
                 }
-                className="w-full py-3 bg-gradient-to-r from-accent-purple to-accent-pink rounded-lg text-white font-bold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-3 bg-deep-teal rounded-lg text-white font-semibold hover:bg-dark-slate transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? (
                   <span className="flex items-center justify-center">
@@ -572,44 +560,40 @@ export default function ChallengePage() {
         )}
 
         {hasSubmitted && challenge.isActive && (
-          <div className="mb-8 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
-            <p className="text-green-400 text-center">
-              ✓ You have already submitted a solution to this challenge
+          <div className="mb-8 p-4 bg-muted-teal/10 border border-muted-teal/20 rounded-lg">
+            <p className="text-deep-teal text-center font-medium">
+              You have already submitted a solution to this challenge
             </p>
           </div>
         )}
 
         {/* Submissions List */}
-        <div className="bg-gradient-to-br from-[#1a1f3a] to-[#0f1325] border border-accent-purple/30 rounded-2xl p-8 shadow-xl">
+        <div className="bg-white border-2 border-border-light rounded-xl p-8 shadow-sm">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-3xl font-bold text-white flex items-center">
-              <span className="mr-3 text-2xl">📋</span>
-              Submissions
-              <span className="ml-3 text-lg font-normal text-gray-400">
-                ({submissions.length} of {challenge.submissionCount})
-              </span>
+            <h2 className="text-2xl font-bold text-charcoal">
+              Submissions ({submissions.length})
             </h2>
             {isCreator && challenge.isActive && submissions.length > 0 && !challenge.winner && (
-              <div className="px-4 py-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                <p className="text-yellow-400 text-sm font-semibold">
-                  ⚡ Select a winner to complete challenge
+              <div className="px-4 py-2 bg-muted-teal/10 border border-muted-teal/20 rounded-lg">
+                <p className="text-deep-teal text-sm font-semibold">
+                  Select a winner to complete challenge
                 </p>
               </div>
             )}
           </div>
 
           {submissions.length === 0 ? (
-            <div className="text-center py-16 border-2 border-dashed border-white/10 rounded-xl">
-              <div className="text-6xl mb-4">📝</div>
-              <p className="text-gray-300 text-xl font-semibold mb-2">No submissions yet</p>
-              <p className="text-gray-500 text-sm">
+            <div className="text-center py-16 border-2 border-dashed border-border-medium rounded-xl">
+              <div className="text-5xl mb-4">📝</div>
+              <p className="text-charcoal text-xl font-semibold mb-2">No submissions yet</p>
+              <p className="text-dark-slate text-sm">
                 {challenge.isActive
                   ? "Be the first to submit a solution and win the bounty!"
                   : "This challenge had no submissions"}
               </p>
             </div>
           ) : (
-            <div className="space-y-5">
+            <div className="space-y-4">
               {submissions.map((submission, index) => {
                 const isWinner =
                   challenge.winner &&
@@ -621,88 +605,83 @@ export default function ChallengePage() {
                 return (
                   <div
                     key={submission.submissionId}
-                    className={`relative rounded-xl border-2 transition-all hover:shadow-lg ${
+                    className={`relative rounded-xl border-2 p-6 transition-all ${
                       isWinner
-                        ? "bg-gradient-to-r from-yellow-500/10 via-accent-purple/10 to-accent-pink/10 border-yellow-500/50 shadow-yellow-500/20"
+                        ? "bg-deep-teal/5 border-deep-teal/30"
                         : isUserSubmission
-                        ? "bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border-cyan-500/30"
-                        : "bg-white/5 border-white/10 hover:border-white/20"
+                        ? "bg-muted-teal/5 border-muted-teal/30"
+                        : "bg-white border-border-light hover:border-muted-teal"
                     }`}
                   >
-                    {/* Winner Ribbon */}
                     {isWinner && (
-                      <div className="absolute -top-3 -right-3 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white px-4 py-1 rounded-full shadow-lg text-xs font-bold uppercase tracking-wide flex items-center">
-                        <span className="mr-1">🏆</span> Winner
+                      <div className="absolute -top-3 -right-3 bg-deep-teal text-white px-4 py-1 rounded-full shadow-md text-xs font-bold uppercase flex items-center gap-1">
+                        <span>🏆</span> Winner
                       </div>
                     )}
 
-                    <div className="p-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-3">
-                            <div className="flex items-center justify-center w-10 h-10 bg-accent-purple/20 rounded-lg">
-                              <span className="text-accent-purple font-bold text-lg">
-                                #{submission.submissionId}
-                              </span>
-                            </div>
-                            <div>
-                              <p className="text-white font-bold text-lg">
-                                Submission #{submission.submissionId}
-                                {isUserSubmission && (
-                                  <span className="ml-2 px-2 py-0.5 bg-cyan-500/20 text-cyan-400 text-xs font-bold rounded">
-                                    YOUR SUBMISSION
-                                  </span>
-                                )}
-                              </p>
-                              <p className="text-gray-400 text-sm">
-                                Submitted {formatRelativeTime(submission.timestamp)}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2 text-sm">
-                            <span className="text-gray-400">Submitter:</span>
-                            <span className="text-accent-cyan font-mono font-semibold bg-accent-cyan/10 px-3 py-1 rounded-lg">
-                              {formatAddress(submission.submitter.toString())}
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="flex items-center justify-center w-10 h-10 bg-muted-teal/10 rounded-lg">
+                            <span className="text-muted-teal font-bold">
+                              #{index + 1}
                             </span>
                           </div>
+                          <div>
+                            <p className="text-charcoal font-semibold">
+                              Submission #{index + 1}
+                              {isUserSubmission && (
+                                <span className="ml-2 px-2 py-0.5 bg-muted-teal/10 text-muted-teal text-xs font-bold rounded">
+                                  YOUR SUBMISSION
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-muted-teal text-sm">
+                              {formatRelativeTime(submission.timestamp)}
+                            </p>
+                          </div>
                         </div>
 
-                        <div className="flex items-center gap-3">
-                          <a
-                            href={submission.proofUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-5 py-2.5 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 hover:from-indigo-500/30 hover:to-purple-500/30 border border-indigo-500/50 hover:border-indigo-400 rounded-lg text-white text-sm font-semibold transition-all flex items-center gap-2"
-                          >
-                            <span>👁️</span>
-                            View Proof
-                          </a>
-
-                          {isCreator &&
-                            challenge.isActive &&
-                            !challenge.winner && (
-                              <button
-                                onClick={() =>
-                                  handleSelectWinner(submission.submitter)
-                                }
-                                disabled={selectingWinner}
-                                className="px-5 py-2.5 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 rounded-lg text-white text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg"
-                              >
-                                <span>🏆</span>
-                                {selectingWinner ? "Selecting..." : "Select as Winner"}
-                              </button>
-                            )}
+                        <div className="flex items-center gap-2 text-sm mb-3">
+                          <span className="text-dark-slate">Submitter:</span>
+                          <span className="text-deep-teal font-mono font-semibold bg-deep-teal/5 px-3 py-1 rounded">
+                            {formatAddress(submission.submitter.toString())}
+                          </span>
                         </div>
-                      </div>
 
-                      <div className="pt-4 border-t border-white/10">
-                        <div className="flex items-start gap-2">
-                          <span className="text-gray-500 text-sm mt-0.5">🔗</span>
-                          <p className="text-gray-400 text-sm break-all flex-1 font-mono bg-black/20 px-3 py-2 rounded">
+                        <div className="flex items-start gap-2 p-3 bg-ash-grey/30 rounded">
+                          <svg className="w-4 h-4 text-muted-teal mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                          </svg>
+                          <p className="text-dark-slate text-sm break-all font-mono flex-1">
                             {submission.proofUrl}
                           </p>
                         </div>
+                      </div>
+
+                      <div className="flex flex-col gap-2">
+                        <a
+                          href={submission.proofUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-4 py-2 bg-white border-2 border-muted-teal hover:bg-muted-teal hover:text-white rounded-lg text-muted-teal text-sm font-semibold transition-all text-center whitespace-nowrap"
+                        >
+                          View Proof
+                        </a>
+
+                        {isCreator &&
+                          challenge.isActive &&
+                          !challenge.winner && (
+                            <button
+                              onClick={() =>
+                                handleSelectWinner(submission.submitter)
+                              }
+                              disabled={selectingWinner}
+                              className="px-4 py-2 bg-deep-teal hover:bg-dark-slate rounded-lg text-white text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                            >
+                              {selectingWinner ? "Selecting..." : "Select Winner"}
+                            </button>
+                          )}
                       </div>
                     </div>
                   </div>
@@ -712,6 +691,16 @@ export default function ChallengePage() {
           )}
         </div>
       </main>
+
+      <ConfirmModal
+        isOpen={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        onConfirm={confirmSelectWinner}
+        title="Select Winner"
+        message={`Are you sure you want to select ${selectedWinner ? formatAddress(selectedWinner.toString()) : ''} as the winner?\n\nThis will transfer ${challenge ? formatSOL(challenge.bountyAmount) : ''} to them and close the challenge.`}
+        confirmText="Select Winner"
+        isLoading={selectingWinner}
+      />
     </div>
   );
 }

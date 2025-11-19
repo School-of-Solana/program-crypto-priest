@@ -1,0 +1,131 @@
+.card {
+  @apply bg-white rounded-lg border-2 border-border-light p-4 sm:p-6 hover:border-muted-teal hover:shadow-md transition-all duration-200;
+}
+
+.header {
+  @apply flex items-start justify-between mb-4;
+}
+
+.headerContent {
+  @apply flex-1;
+}
+
+.headerBadges {
+  @apply flex items-center gap-2 mb-2;
+}
+
+.challengeId {
+  @apply text-xs font-semibold text-muted-teal uppercase;
+}
+
+.statusBadge {
+  @apply px-2.5 py-0.5 rounded-full text-xs font-semibold;
+}
+
+.statusActive {
+  @apply bg-muted-teal/10 text-muted-teal;
+}
+
+.statusCompleted {
+  @apply bg-dark-slate/10 text-dark-slate;
+}
+
+.title {
+  @apply text-lg font-bold text-deep-teal line-clamp-2;
+}
+
+.description {
+  @apply text-dark-slate text-sm leading-relaxed mb-5 line-clamp-2;
+}
+
+.statsGrid {
+  @apply grid grid-cols-2 gap-4 mb-5 pb-5 border-b border-border-light;
+}
+
+.statCard {
+  @apply rounded-lg p-3;
+}
+
+.statCardBounty {
+  @apply bg-dark-slate/5;
+}
+
+.statCardSubmissions {
+  @apply bg-muted-teal/5;
+}
+
+.statHeader {
+  @apply flex items-center gap-1.5 mb-1;
+}
+
+.statIcon {
+  @apply w-4 h-4;
+}
+
+.statIconBounty {
+  @apply text-dark-slate;
+}
+
+.statIconSubmissions {
+  @apply text-muted-teal;
+}
+
+.statLabel {
+  @apply text-xs font-semibold uppercase;
+}
+
+.statLabelBounty {
+  @apply text-muted-teal;
+}
+
+.statLabelSubmissions {
+  @apply text-muted-teal;
+}
+
+.statValue {
+  @apply text-xl font-bold;
+}
+
+.statValueBounty {
+  @apply text-dark-slate;
+}
+
+.statValueSubmissions {
+  @apply text-muted-teal;
+}
+
+.footer {
+  @apply flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4;
+}
+
+.creatorInfo {
+  @apply flex flex-col gap-1 w-full sm:w-auto;
+}
+
+.creatorLabel {
+  @apply text-xs text-muted-teal font-medium;
+}
+
+.creatorAddress {
+  @apply text-sm text-deep-teal font-mono font-semibold;
+}
+
+.deadlineInfo {
+  @apply flex items-center gap-1 mt-0.5;
+}
+
+.deadlineIcon {
+  @apply w-4 h-4 text-muted-teal;
+}
+
+.deadlineText {
+  @apply text-xs text-muted-teal;
+}
+
+.viewButton {
+  @apply flex items-center justify-center gap-2 px-5 py-2.5 bg-deep-teal text-ash-grey font-semibold rounded-lg hover:bg-dark-slate transition-colors duration-200 w-full sm:w-auto;
+}
+
+.viewButtonIcon {
+  @apply w-4 h-4;
+}

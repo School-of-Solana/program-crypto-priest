@@ -1,0 +1,100 @@
+.navbar {
+  @apply sticky top-0 z-50 bg-white border-b border-border-light shadow-sm;
+}
+
+.navContainer {
+  @apply container mx-auto px-6;
+}
+
+.navContent {
+  @apply flex items-center justify-between h-16;
+}
+
+.logo {
+  @apply flex items-center gap-2;
+}
+
+.logoIcon {
+  @apply w-9 h-9 rounded bg-deep-teal flex items-center justify-center;
+}
+
+.logoSvg {
+  @apply w-5 h-5 text-ash-grey;
+}
+
+.logoText {
+  @apply text-xl font-semibold text-deep-teal;
+}
+
+.navLinks {
+  @apply hidden md:flex items-center gap-1;
+}
+
+.navLink {
+  @apply px-4 py-2 rounded text-sm font-medium transition-colors;
+}
+
+.navLinkActive {
+  @apply text-deep-teal bg-muted-teal/10;
+}
+
+.navLinkInactive {
+  @apply text-text-secondary hover:text-deep-teal hover:bg-ash-grey/50;
+}
+
+.actions {
+  @apply flex items-center gap-3;
+}
+
+.createButton {
+  @apply hidden sm:inline-flex items-center px-4 py-2 bg-deep-teal text-white text-sm font-medium rounded hover:bg-dark-slate transition-colors;
+}
+
+.walletButton {
+  @apply !bg-muted-teal/10 !text-deep-teal hover:!bg-muted-teal/20 !rounded !text-sm !font-medium !transition-colors !border !border-muted-teal/30;
+}
+
+/* Mobile Menu */
+.mobileMenuButton {
+  @apply md:hidden flex items-center justify-center w-10 h-10 rounded-lg text-deep-teal hover:bg-ash-grey/50 transition-colors;
+}
+
+.menuIcon {
+  @apply w-6 h-6;
+}
+
+.mobileMenu {
+  @apply md:hidden absolute top-full left-0 right-0 bg-white border-b-2 border-border-light shadow-lg;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mobileMenuLinks {
+  @apply flex flex-col p-4 space-y-2;
+}
+
+.mobileNavLink {
+  @apply px-4 py-3 rounded-lg text-base font-medium transition-colors text-text-secondary;
+}
+
+.mobileNavLink:hover {
+  @apply text-deep-teal bg-muted-teal/10;
+}
+
+.mobileNavLinkActive {
+  @apply text-deep-teal bg-muted-teal/10;
+}
+
+.mobileCreateButton {
+  @apply mt-2 px-4 py-3 bg-deep-teal text-white font-semibold rounded-lg hover:bg-dark-slate transition-colors text-center;
+}
