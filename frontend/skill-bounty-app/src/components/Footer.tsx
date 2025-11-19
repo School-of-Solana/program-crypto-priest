@@ -10,7 +10,13 @@ export default function Footer() {
           <div className={styles.brandSection}>
             <div className={styles.brandHeader}>
               <div className={styles.brandIcon}>
-                <span className="text-2xl">💎</span>
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {/* Trophy with coin design */}
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-3.866 0-7-3.134-7-7h14c0 3.866-3.134 7-7 7z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.5 8v1.5c0 1.933 1.567 3.5 3.5 3.5s3.5-1.567 3.5-3.5V8" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13v8m6-8v8M7 21h10" />
+                  <circle cx="12" cy="5" r="1.5" fill="currentColor" />
+                </svg>
               </div>
               <span className={styles.brandName}>
                 Skill Bounty

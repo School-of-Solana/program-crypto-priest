@@ -1,41 +1,31 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Background gradient -->
-  <defs>
-    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#7c3aed;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#db2777;stop-opacity:1" />
-    </linearGradient>
-    <linearGradient id="shine" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.3" />
-      <stop offset="50%" style="stop-color:#ffffff;stop-opacity:0.6" />
-      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0.3" />
-    </linearGradient>
-  </defs>
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="#52796f"/>
 
-  <!-- Background circle -->
-  <circle cx="256" cy="256" r="240" fill="url(#grad1)"/>
+  <!-- Trophy with coin design - centered and scaled -->
+  <g transform="translate(256, 160) scale(3.5)">
+    <!-- Trophy cup top -->
+    <path d="M0 16C-10.4 16-19 8.6-19 -2h38c0 10.6-8.6 18-19 18z" stroke="#cad2c5" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
 
-  <!-- Diamond/Gem shape -->
-  <g transform="translate(256, 256)">
-    <!-- Top facet -->
-    <polygon points="0,-120 -80,-40 80,-40" fill="#ffffff" opacity="0.9"/>
+    <!-- Trophy cup middle -->
+    <path d="M-8 16v5c0 4.4 3.6 8 8 8s8-3.6 8-8v-5" stroke="#cad2c5" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
 
-    <!-- Left facet -->
-    <polygon points="-80,-40 -100,40 0,0" fill="#e0e7ff" opacity="0.8"/>
+    <!-- Trophy base -->
+    <path d="M-4 29v24m8-24v24M-12 53h24" stroke="#cad2c5" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
 
-    <!-- Right facet -->
-    <polygon points="80,-40 100,40 0,0" fill="#ddd6fe" opacity="0.8"/>
+    <!-- Coin/star in center of trophy -->
+    <circle cx="0" cy="4" r="5" fill="#84a98c"/>
 
-    <!-- Bottom left facet -->
-    <polygon points="-100,40 0,120 0,0" fill="#c4b5fd" opacity="0.7"/>
-
-    <!-- Bottom right facet -->
-    <polygon points="100,40 0,120 0,0" fill="#a78bfa" opacity="0.7"/>
-
-    <!-- Center highlight -->
-    <polygon points="0,-40 -30,0 30,0" fill="url(#shine)"/>
+    <!-- Star/sparkle on coin -->
+    <path d="M0 1v6M-3 4h6" stroke="#cad2c5" stroke-width="1.5" stroke-linecap="round"/>
   </g>
 
-  <!-- Outer ring -->
-  <circle cx="256" cy="256" r="240" fill="none" stroke="#ffffff" stroke-width="8" opacity="0.3"/>
+  <!-- Decorative elements - coins around trophy -->
+  <circle cx="140" cy="280" r="20" fill="#84a98c" opacity="0.4"/>
+  <circle cx="372" cy="280" r="20" fill="#84a98c" opacity="0.4"/>
+  <circle cx="190" cy="380" r="16" fill="#84a98c" opacity="0.3"/>
+  <circle cx="322" cy="380" r="16" fill="#84a98c" opacity="0.3"/>
+
+  <!-- Subtle outer ring -->
+  <rect width="512" height="512" rx="96" fill="none" stroke="#cad2c5" stroke-width="8" opacity="0.2"/>
 </svg>
